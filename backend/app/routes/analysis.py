@@ -18,6 +18,52 @@ router = APIRouter(
 )
 
 
+def _enrich_saved_result(result: dict) -> dict:
+    if result.get("project_detection"):
+        return result
+
+    files = [review.get("file", "") for review in result.get("file_reviews", [])]
+    lower_files = [file_name.lower() for file_name in files]
+    languages = []
+    if any(file_name.endswith(".py") for file_name in lower_files):
+        languages.append("python")
+    if any(file_name.endswith((".js", ".jsx")) for file_name in lower_files):
+        languages.append("javascript")
+    if any(file_name.endswith((".ts", ".tsx")) for file_name in lower_files):
+        languages.append("typescript")
+    if any(file_name.endswith(".java") for file_name in lower_files):
+        languages.append("java")
+    if any(file_name.endswith(".cs") for file_name in lower_files):
+        languages.append("csharp")
+
+    frameworks = []
+    if any(file_name.endswith("package.json") for file_name in lower_files):
+        frameworks.append("node ecosystem")
+    if any(file_name.endswith(("requirements.txt", "pyproject.toml")) for file_name in lower_files):
+        frameworks.append("python ecosystem")
+
+    result["project_detection"] = {
+        "languages": languages,
+        "frameworks": frameworks,
+        "project_type": result.get("project_type", "generic"),
+        "entry_points": [
+            file_name for file_name in files
+            if file_name.lower().endswith(("main.py", "app.py", "manage.py", "index.js", "server.js"))
+        ],
+        "dependency_files": [
+            file_name for file_name in files
+            if file_name.lower().endswith(("requirements.txt", "pyproject.toml", "package.json", "pom.xml"))
+        ],
+        "test_directories": sorted({
+            str(Path(file_name).parent)
+            for file_name in files
+            if "test" in file_name.lower()
+        }),
+    }
+    result["files_scanned"] = result.get("files_scanned") or len(files)
+    return result
+
+
 @router.post(
     "/",
     response_model=AnalysisResponse,
@@ -63,7 +109,7 @@ async def get_all_analyses(
                 "file_name": analysis.file_name,
                 "analysis_type": analysis.analysis_type,
                 "status": analysis.status,
-                "result": json.loads(analysis.result)
+                "result": _enrich_saved_result(json.loads(analysis.result))
                 if analysis.result
                 else None,
                 "created_at": analysis.created_at,
@@ -98,7 +144,7 @@ async def get_analysis(
             "file_name": analysis.file_name,
             "analysis_type": analysis.analysis_type,
             "status": analysis.status,
-            "result": json.loads(analysis.result)
+            "result": _enrich_saved_result(json.loads(analysis.result))
             if analysis.result
             else None,
             "created_at": analysis.created_at,

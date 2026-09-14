@@ -272,7 +272,24 @@ function App() {
         return entries;
       })();
     const score = Number(data.overall_score || 0);
-    const detection = data.project_detection || {};
+    const detection = data.project_detection || (() => {
+      const files = (data.file_reviews || []).map((review) => review.file || "");
+      const lowerFiles = files.map((file) => file.toLowerCase());
+      const hasPackage = lowerFiles.some((file) => file.endsWith("package.json"));
+      const hasRequirements = lowerFiles.some((file) => file.endsWith("requirements.txt"));
+      const languages = [];
+      if (lowerFiles.some((file) => file.endsWith(".py"))) languages.push("python");
+      if (lowerFiles.some((file) => /\.(js|jsx)$/.test(file))) languages.push("javascript");
+      if (lowerFiles.some((file) => /\.(ts|tsx)$/.test(file))) languages.push("typescript");
+      const frameworks = [];
+      if (hasPackage) frameworks.push("node ecosystem");
+      if (hasRequirements) frameworks.push("python ecosystem");
+      return {
+        languages,
+        frameworks,
+        project_type: data.project_type || (hasPackage ? "node" : hasRequirements ? "python" : "generic"),
+      };
+    })();
     const securitySummary = data.security?.summary || {};
     const testing = data.testing || {};
     const testingTotal = Object.values(testing).reduce(

@@ -48,11 +48,11 @@ def detect_project(root: Path, files: list[str]) -> dict[str, Any]:
         frameworks.add("vite")
     if "next" in lower_manifest:
         frameworks.add("next")
-    if "fastapi" in lower_manifest:
+    if "fastapi" in lower_manifest or any("fastapi" in read_text(name).lower() for name in normalized if name.lower().endswith(".py")):
         frameworks.add("fastapi")
-    if "flask" in lower_manifest:
+    if "flask" in lower_manifest or any("flask" in read_text(name).lower() for name in normalized if name.lower().endswith(".py")):
         frameworks.add("flask")
-    if "django" in lower_manifest or "manage.py" in lower_files:
+    if "django" in lower_manifest or "manage.py" in file_names or any("django" in read_text(name).lower() for name in normalized if name.lower().endswith(".py")):
         frameworks.add("django")
     if "express" in lower_manifest:
         frameworks.add("express")
