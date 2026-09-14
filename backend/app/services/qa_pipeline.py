@@ -12,6 +12,8 @@ from app.services.static_analysis_service import run_static_analysis
 from app.services.testing.boundary_test_service import analyze_boundaries
 from app.services.testing.edge_case_service import generate_edge_cases
 from app.services.testing.logical_test_service import analyze_logical_cases
+from app.services.testing.fuzz_test_service import generate_fuzz_cases
+from app.services.testing.test_executor import prepare_test_execution
 
 
 def _safe_security_scan(project_root: Path) -> dict:
@@ -46,7 +48,9 @@ def run_project_qa_pipeline(project_info: dict) -> dict:
         "logical": _safe_call(analyze_logical_cases, project_root, files),
         "boundary": _safe_call(analyze_boundaries, project_root, files),
         "edge": generate_edge_cases(),
+        "fuzz": generate_fuzz_cases(),
     }
+    summary["test_execution"] = prepare_test_execution(project_root, summary["project_type"])
     security_summary = summary["security"].get("summary", {})
     deductions = (security_summary.get("high", 0) * 8) + (security_summary.get("medium", 0) * 4) + (security_summary.get("low", 0) * 1)
     summary["score_breakdown"] = {"base": 100, "security_deductions": deductions, "final": max(0, min(100, round(summary["overall_score"] - deductions, 2)))}
