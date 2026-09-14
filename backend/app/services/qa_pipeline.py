@@ -78,8 +78,10 @@ def _add_evidence_categories(summary: dict) -> None:
 
 def run_project_qa_pipeline(project_info: dict) -> dict:
     project_root = Path(project_info.get("root", "."))
+    detected_project = detect_project(project_root, project_info.get("files", []))
+    project_info["project_type"] = detected_project.get("project_type", "generic")
     summary = generate_project_summary(project_info)
-    summary["project_detection"] = detect_project(project_root, project_info.get("files", []))
+    summary["project_detection"] = detected_project
     summary["runtime"] = detect_runtime(project_root, project_info.get("files", []), summary["project_detection"].get("frameworks", []))
     summary["api_testing"] = discover_api_endpoints(project_root, project_info.get("files", []))
     summary["security"] = _safe_security_scan(project_root)

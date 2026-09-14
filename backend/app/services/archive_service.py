@@ -113,25 +113,39 @@ def extract_archive(
 
 
 def _find_project_root(base: Path) -> Path:
-    project_dirs = {"backend", "frontend", "src", "app"}
-    project_files = {"package.json", "requirements.txt", "pyproject.toml", "README.md"}
-
-    for child in base.iterdir():
-        if child.is_dir() and child.name in {"backend", "frontend", "src", "app"}:
-            return child
-        if child.is_file() and child.name in project_files:
-            return base
+    project_files = {
+        "package.json", "requirements.txt", "pyproject.toml", "setup.py",
+        "pom.xml", "build.gradle", "composer.json", "manage.py",
+    }
+    candidates: list[tuple[int, int, Path]] = []
 
     for current, dirs, files in os.walk(base, topdown=True, followlinks=False):
         dirs[:] = [directory for directory in dirs if directory.lower() not in _IGNORED_DIRS]
         current_path = Path(current)
-        for directory in dirs:
-            if directory in project_dirs:
-                return current_path / directory
-        if any(file_name in project_files for file_name in files):
-            return current_path
+        lower_dirs = {directory.lower() for directory in dirs}
+        lower_files = {file_name.lower() for file_name in files}
+        score = 0
 
-    return base
+        if "backend" in lower_dirs and "frontend" in lower_dirs:
+            score += 12
+        if len(lower_files & project_files) > 0:
+            score += 5 * len(lower_files & project_files)
+        if "src" in lower_dirs or "app" in lower_dirs:
+            score += 1
+        if any(Path(file_name).suffix.lower() in {".py", ".js", ".jsx", ".ts", ".tsx"} for file_name in files):
+            score += 1
+
+        if score:
+            depth = len(current_path.relative_to(base).parts)
+            candidates.append((score, -depth, current_path))
+
+    if not candidates:
+        return base
+
+    # Prefer a complete wrapper containing backend and frontend, then the
+    # shallowest highest-scoring directory.
+    candidates.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    return candidates[0][2]
 
 
 _IGNORED_DIRS = {

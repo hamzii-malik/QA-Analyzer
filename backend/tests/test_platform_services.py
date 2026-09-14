@@ -3,7 +3,7 @@ import zipfile
 
 import pytest
 
-from app.services.archive_service import extract_archive
+from app.services.archive_service import _find_project_root, extract_archive
 from app.services.project_detector import detect_project
 from app.services.qa_pipeline import _add_evidence_categories
 from app.services.testing.boundary_test_service import analyze_boundaries
@@ -43,6 +43,14 @@ def test_zip_slip_is_rejected(tmp_path):
         zipped.writestr("../../outside.txt", "blocked")
     with pytest.raises(ValueError, match="unsafe path"):
         extract_archive(str(archive), str(destination))
+
+
+def test_project_root_keeps_full_stack_wrapper(tmp_path):
+    (tmp_path / "backend" / "app").mkdir(parents=True)
+    (tmp_path / "frontend" / "src").mkdir(parents=True)
+    (tmp_path / "package.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "backend" / "requirements.txt").write_text("fastapi\n", encoding="utf-8")
+    assert _find_project_root(tmp_path) == tmp_path
 
 
 def test_security_and_edge_categories_follow_deprecation():
