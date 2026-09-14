@@ -236,6 +236,41 @@ function App() {
 
     const categories = data.categories || {};
     const categoryEntries = Object.entries(categories);
+    const orderedCategoryEntries = categoryEntries.some(([name]) => name === "security_testing")
+      ? categoryEntries
+      : (() => {
+        const security = data.security || {};
+        const edge = data.testing?.edge || {};
+        const fallback = {
+          security_testing: {
+            status: security.status || "pending",
+            score: security.summary?.total ? 0 : 100,
+            summary: "Security scanner results.",
+            details: Object.entries(security.scanners || {}).map(([name, scanner]) => `${name}: ${scanner.status} (${scanner.summary?.total || 0} findings)`),
+            findings: Object.values(security.scanners || {}).flatMap((scanner) => scanner.findings || []),
+            tool: "Bandit / Semgrep / Dependency Audit / OWASP ZAP",
+            command: "Run the configured security scanners against the extracted project.",
+          },
+          edge_case_testing: {
+            status: edge.status || "pending",
+            score: edge.status === "completed" ? 100 : 0,
+            summary: "Generated bounded edge-case inputs.",
+            details: (edge.findings || []).map((family) => `${family.input_family}: ${(family.test_cases || []).length} generated cases`),
+            findings: edge.findings || [],
+            tool: "Bounded edge-case generator",
+            command: "Generate bounded edge inputs and review each result against expected behavior.",
+          },
+        };
+        const entries = [];
+        for (const entry of categoryEntries) {
+          entries.push(entry);
+          if (entry[0] === "deprecation_testing") {
+            entries.push(["security_testing", fallback.security_testing]);
+            entries.push(["edge_case_testing", fallback.edge_case_testing]);
+          }
+        }
+        return entries;
+      })();
     const score = Number(data.overall_score || 0);
     const detection = data.project_detection || {};
     const securitySummary = data.security?.summary || {};
@@ -310,78 +345,6 @@ function App() {
           </div>
         )}
 
-        {data.security && (
-          <div className="project-overview-card">
-            <div className="card-title">
-              <span className="icon security">!</span>
-              <h3>Security Scanners</h3>
-            </div>
-            <ul className="result-list">
-              {Object.entries(data.security.scanners || {}).map(([scanner, scannerData]) => (
-                <li key={scanner}>
-                  {scanner}: {scannerData.status} ({scannerData.summary?.total || 0} findings)
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <div className="results-grid">
-          <div className="result-card security-result-card">
-            <div className="card-title">
-              <span className="icon security">🔐</span>
-              <h3>Security Testing Results</h3>
-            </div>
-            {Object.entries(data.security?.scanners || {}).map(([scanner, scannerData]) => (
-              <div className="evidence-group" key={scanner}>
-                <div className="category-meta">
-                  <strong>{scanner.toUpperCase()}</strong> | Status: {scannerData.status} | Findings: {scannerData.summary?.total || 0}
-                </div>
-                {renderEvidenceList(scannerData.findings, `${scanner} found no security issues.`)}
-                {scannerData.errors?.length > 0 && (
-                  <div className="category-command">{scannerData.errors.join(" ")}</div>
-                )}
-              </div>
-            ))}
-            {!Object.keys(data.security?.scanners || {}).length && (
-              <div className="empty-list">Security scanners did not return results.</div>
-            )}
-          </div>
-
-          <div className="result-card testing-result-card">
-            <div className="card-title">
-              <span className="icon testing">🧪</span>
-              <h3>Edge Case Testing Results</h3>
-            </div>
-            <div className="category-meta">
-              Status: {data.testing?.edge?.status || "pending"} | Cases: {data.testing?.edge?.summary?.total || 0}
-            </div>
-            {renderEvidenceList(data.testing?.edge?.findings, "No edge-case families generated.")}
-            {data.testing?.edge?.findings?.map((family) => (
-              <div className="category-command" key={family.input_family}>
-                <strong>{family.input_family}:</strong> {JSON.stringify(family.test_cases)}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="results-grid">
-          {Object.entries(data.testing || {})
-            .filter(([name]) => name !== "edge")
-            .map(([name, testingData]) => (
-              <div className="result-card" key={`testing-${name}`}>
-                <div className="card-title">
-                  <span className="icon testing">✓</span>
-                  <h3>{name.replace(/_/g, " ")} Testing</h3>
-                </div>
-                <div className="category-meta">
-                  Status: {testingData.status || "pending"} | Cases: {testingData.summary?.total || 0}
-                </div>
-                {renderEvidenceList(testingData.findings, "No findings generated.")}
-              </div>
-            ))}
-        </div>
-
         <div className="project-overview-card">
           <div className="card-title">
             <span className="icon testing">📊</span>
@@ -447,7 +410,7 @@ function App() {
         </div>
 
         <div className="results-grid">
-          {categoryEntries.map(([categoryName, categoryData]) => (
+          {orderedCategoryEntries.map(([categoryName, categoryData]) => (
             <div className="result-card" key={categoryName}>
               <div className="card-title">
                 <span className="icon testing">🧪</span>
@@ -467,6 +430,12 @@ function App() {
               {categoryData.command && (
                 <div className="category-command">
                   <strong>Command:</strong> {categoryData.command}
+                </div>
+              )}
+
+              {categoryData.findings && (
+                <div className="evidence-group">
+                  {renderEvidenceList(categoryData.findings, "No findings generated.")}
                 </div>
               )}
 

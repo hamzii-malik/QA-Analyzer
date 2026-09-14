@@ -35,6 +35,47 @@ def _safe_call(function, *args) -> dict:
         return {"status": "failed", "findings": [], "summary": {"total": 0}, "errors": [str(exc)]}
 
 
+def _add_evidence_categories(summary: dict) -> None:
+    categories = summary.get("categories", {})
+    security = summary.get("security", {})
+    edge = summary.get("testing", {}).get("edge", {})
+    ordered_categories = {}
+
+    for name, category in categories.items():
+        ordered_categories[name] = category
+        if name == "deprecation_testing":
+            ordered_categories["security_testing"] = {
+                "status": security.get("status", "pending"),
+                "score": max(0, 100 - (security.get("summary", {}).get("high", 0) * 8) - (security.get("summary", {}).get("medium", 0) * 4)),
+                "summary": "Security scanner results from Bandit, Semgrep, dependency audit, and OWASP ZAP.",
+                "details": [
+                    f"{name}: {scanner.get('status', 'unknown')} ({scanner.get('summary', {}).get('total', 0)} findings)"
+                    for name, scanner in security.get("scanners", {}).items()
+                ],
+                "findings": [
+                    finding
+                    for scanner in security.get("scanners", {}).values()
+                    for finding in scanner.get("findings", [])
+                ],
+                "tool": "Bandit / Semgrep / Dependency Audit / OWASP ZAP",
+                "command": "Run the configured security scanners against the extracted project.",
+            }
+            ordered_categories["edge_case_testing"] = {
+                "status": edge.get("status", "pending"),
+                "score": 100 if edge.get("status") == "completed" else 0,
+                "summary": "Generated bounded edge-case inputs for numeric, string, collection, and optional values.",
+                "details": [
+                    f"{family.get('input_family', 'unknown')}: {len(family.get('test_cases', []))} generated cases"
+                    for family in edge.get("findings", [])
+                ],
+                "findings": edge.get("findings", []),
+                "tool": "Bounded edge-case generator",
+                "command": "Generate bounded edge inputs and review each result against expected behavior.",
+            }
+
+    summary["categories"] = ordered_categories
+
+
 def run_project_qa_pipeline(project_info: dict) -> dict:
     project_root = Path(project_info.get("root", "."))
     summary = generate_project_summary(project_info)
@@ -50,6 +91,7 @@ def run_project_qa_pipeline(project_info: dict) -> dict:
         "edge": generate_edge_cases(),
         "fuzz": generate_fuzz_cases(),
     }
+    _add_evidence_categories(summary)
     summary["test_execution"] = prepare_test_execution(project_root, summary["project_type"])
     security_summary = summary["security"].get("summary", {})
     deductions = (security_summary.get("high", 0) * 8) + (security_summary.get("medium", 0) * 4) + (security_summary.get("low", 0) * 1)
