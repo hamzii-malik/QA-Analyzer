@@ -8,6 +8,8 @@ from typing import Any
 def detect_project(root: Path, files: list[str]) -> dict[str, Any]:
     normalized = [Path(name).as_posix() for name in files]
     lower_files = {name.lower() for name in normalized}
+    file_names = {Path(name).name.lower() for name in normalized}
+    path_parts = {part.lower() for name in normalized for part in Path(name).parts}
     languages: set[str] = set()
     frameworks: set[str] = set()
     dependency_files: list[str] = []
@@ -59,7 +61,7 @@ def detect_project(root: Path, files: list[str]) -> dict[str, Any]:
         if candidate.lower() in lower_files:
             entry_points.append(candidate)
 
-    if "frontend" in lower_files or "react" in frameworks:
+    if "frontend" in path_parts or "react" in frameworks:
         project_type = "react"
     elif "fastapi" in frameworks or "flask" in frameworks or "django" in frameworks or "python" in languages:
         project_type = "python"

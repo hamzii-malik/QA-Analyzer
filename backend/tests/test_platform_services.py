@@ -5,6 +5,7 @@ import pytest
 
 from app.services.archive_service import _find_project_root, extract_archive
 from app.services.project_detector import detect_project
+from app.services.project_analyzer import detect_project_type, generate_project_summary
 from app.services.qa_pipeline import _add_evidence_categories
 from app.services.testing.boundary_test_service import analyze_boundaries
 from app.services.testing.edge_case_service import generate_edge_cases
@@ -18,6 +19,13 @@ def test_project_detector_identifies_fastapi_and_react(tmp_path):
     assert result["project_type"] == "react"
     assert "fastapi" in result["frameworks"]
     assert "react" in result["frameworks"]
+
+
+def test_nested_project_type_is_not_overwritten_by_legacy_detector(tmp_path):
+    files = ["free-utility-hub/backend/requirements.txt", "free-utility-hub/frontend/package.json", "free-utility-hub/frontend/src/App.jsx"]
+    assert detect_project_type(tmp_path, files) == "react"
+    result = generate_project_summary({"root": tmp_path, "files": files, "project_type": "react"})
+    assert result["project_type"] == "react"
 
 
 def test_logical_and_boundary_services_generate_evidence(tmp_path):

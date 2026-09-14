@@ -16,10 +16,11 @@ SUPPORTED_QA_CATEGORIES = [
 
 
 def detect_project_type(root: Path, file_list: list[str]) -> str:
-    files = {str(Path(f)).replace('\\', '/').lower() for f in file_list}
-    root_str = str(root).lower()
+    paths = [Path(f) for f in file_list]
+    files = {path.name.lower() for path in paths}
+    path_text = " ".join(path.as_posix().lower() for path in paths)
 
-    if "package.json" in files and ("src/" in " ".join(files) or "vite.config" in " ".join(files)):
+    if "package.json" in files and ("src/" in path_text or "vite.config" in path_text or "react" in path_text):
         return "react"
     if "requirements.txt" in files or "pyproject.toml" in files:
         return "python"
@@ -27,8 +28,12 @@ def detect_project_type(root: Path, file_list: list[str]) -> str:
         return "java"
     if ".csproj" in files:
         return "dotnet"
-    if "package.json" in files and "server" in root_str.lower():
+    if "package.json" in files and any(name in path_text for name in ("server", "express", "index.js")):
         return "node"
+    if any(path.suffix.lower() in {".js", ".jsx", ".ts", ".tsx"} for path in paths):
+        return "node"
+    if any(path.suffix.lower() == ".py" for path in paths):
+        return "python"
     return "generic"
 
 
@@ -332,7 +337,10 @@ def build_category_results(project_info: dict) -> dict:
 
 
 def generate_project_summary(project_info: dict) -> dict:
-    project_type = detect_project_type(project_info.get("root", Path(".")), project_info.get("files", []))
+    project_type = project_info.get("project_type") or detect_project_type(
+        project_info.get("root", Path(".")),
+        project_info.get("files", []),
+    )
     project_info["project_type"] = project_type
     categories = build_category_results(project_info)
     total = sum(item["score"] for item in categories.values()) / max(len(categories), 1)
