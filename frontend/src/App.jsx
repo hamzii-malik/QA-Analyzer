@@ -204,6 +204,30 @@ function App() {
     );
   }
 
+  function renderEvidenceList(items, emptyMessage = "No evidence found.") {
+    if (!items || items.length === 0) {
+      return <div className="empty-list">{emptyMessage}</div>;
+    }
+
+    return (
+      <ul className="result-list">
+        {items.map((item, index) => (
+          <li key={`${item.category || item.tool || "evidence"}-${index}`}>
+            {typeof item === "string" ? item : (
+              <>
+                {item.file && <strong>{item.file}{item.line ? `:${item.line}` : ""}: </strong>}
+                {item.condition && <strong>{item.condition} </strong>}
+                {item.input_family && <strong>{item.input_family}: </strong>}
+                {item.name && <strong>{item.name}: </strong>}
+                {item.message || item.description || item.reason || (item.test_cases ? `Test cases: ${JSON.stringify(item.test_cases)}` : JSON.stringify(item))}
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
 
   function renderProjectAnalysis(data) {
     if (!data) {
@@ -301,6 +325,62 @@ function App() {
             </ul>
           </div>
         )}
+
+        <div className="results-grid">
+          <div className="result-card security-result-card">
+            <div className="card-title">
+              <span className="icon security">🔐</span>
+              <h3>Security Testing Results</h3>
+            </div>
+            {Object.entries(data.security?.scanners || {}).map(([scanner, scannerData]) => (
+              <div className="evidence-group" key={scanner}>
+                <div className="category-meta">
+                  <strong>{scanner.toUpperCase()}</strong> | Status: {scannerData.status} | Findings: {scannerData.summary?.total || 0}
+                </div>
+                {renderEvidenceList(scannerData.findings, `${scanner} found no security issues.`)}
+                {scannerData.errors?.length > 0 && (
+                  <div className="category-command">{scannerData.errors.join(" ")}</div>
+                )}
+              </div>
+            ))}
+            {!Object.keys(data.security?.scanners || {}).length && (
+              <div className="empty-list">Security scanners did not return results.</div>
+            )}
+          </div>
+
+          <div className="result-card testing-result-card">
+            <div className="card-title">
+              <span className="icon testing">🧪</span>
+              <h3>Edge Case Testing Results</h3>
+            </div>
+            <div className="category-meta">
+              Status: {data.testing?.edge?.status || "pending"} | Cases: {data.testing?.edge?.summary?.total || 0}
+            </div>
+            {renderEvidenceList(data.testing?.edge?.findings, "No edge-case families generated.")}
+            {data.testing?.edge?.findings?.map((family) => (
+              <div className="category-command" key={family.input_family}>
+                <strong>{family.input_family}:</strong> {JSON.stringify(family.test_cases)}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="results-grid">
+          {Object.entries(data.testing || {})
+            .filter(([name]) => name !== "edge")
+            .map(([name, testingData]) => (
+              <div className="result-card" key={`testing-${name}`}>
+                <div className="card-title">
+                  <span className="icon testing">✓</span>
+                  <h3>{name.replace(/_/g, " ")} Testing</h3>
+                </div>
+                <div className="category-meta">
+                  Status: {testingData.status || "pending"} | Cases: {testingData.summary?.total || 0}
+                </div>
+                {renderEvidenceList(testingData.findings, "No findings generated.")}
+              </div>
+            ))}
+        </div>
 
         <div className="project-overview-card">
           <div className="card-title">

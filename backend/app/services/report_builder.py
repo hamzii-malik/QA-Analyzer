@@ -151,6 +151,53 @@ def generate_docx_report(report_path: str, project_name: str, result: dict) -> s
         doc.add_paragraph("How to verify:", style="List Bullet")
         doc.add_paragraph(category_data.get("command", "Perform a focused manual QA review."))
 
+    security = result.get("security", {})
+    doc.add_heading("Security Testing Results", level=2)
+    doc.add_paragraph(f"Overall security status: {security.get('status', 'unknown')}")
+    doc.add_paragraph(f"Security summary: {json.dumps(security.get('summary', {}), default=str)}")
+    for scanner_name, scanner_data in security.get("scanners", {}).items():
+        doc.add_heading(scanner_name.upper(), level=3)
+        doc.add_paragraph(
+            f"Status: {scanner_data.get('status', 'unknown')} | "
+            f"Findings: {scanner_data.get('summary', {}).get('total', 0)}"
+        )
+        findings = scanner_data.get("findings", [])
+        if findings:
+            for finding in findings:
+                doc.add_paragraph(json.dumps(finding, default=str), style="List Bullet")
+        else:
+            doc.add_paragraph("No findings returned by this scanner.", style="List Bullet")
+        for error in scanner_data.get("errors", []):
+            doc.add_paragraph(f"Scanner note: {error}", style="List Bullet")
+
+    testing = result.get("testing", {})
+    doc.add_heading("Testing Results", level=2)
+    for test_name, test_data in testing.items():
+        doc.add_heading(test_name.replace("_", " ").title(), level=3)
+        doc.add_paragraph(
+            f"Status: {test_data.get('status', 'unknown')} | "
+            f"Cases/findings: {test_data.get('summary', {}).get('total', 0)}"
+        )
+        for finding in test_data.get("findings", []):
+            doc.add_paragraph(json.dumps(finding, default=str), style="List Bullet")
+        for error in test_data.get("errors", []):
+            doc.add_paragraph(f"Testing note: {error}", style="List Bullet")
+
+    api_testing = result.get("api_testing", {})
+    doc.add_heading("API Testing Results", level=2)
+    doc.add_paragraph(
+        f"Status: {api_testing.get('status', 'unknown')} | "
+        f"Endpoints discovered: {api_testing.get('summary', {}).get('total', 0)}"
+    )
+    for endpoint in api_testing.get("endpoints", []):
+        doc.add_paragraph(json.dumps(endpoint, default=str), style="List Bullet")
+
+    runtime = result.get("runtime", {})
+    doc.add_heading("Runtime Testing Readiness", level=2)
+    doc.add_paragraph(json.dumps(runtime, default=str))
+    doc.add_heading("Score Breakdown", level=2)
+    doc.add_paragraph(json.dumps(result.get("score_breakdown", {}), default=str))
+
     file_reviews = result.get("file_reviews", [])
     if file_reviews:
         doc.add_heading("File-by-file QA Review", level=2)

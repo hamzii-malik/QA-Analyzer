@@ -2,6 +2,17 @@
   box-sizing: border-box;
 }
 
+.evidence-group {
+  border-top: 1px solid rgba(158, 163, 170, 0.18);
+  margin-top: 16px;
+  padding-top: 14px;
+}
+
+.security-result-card,
+.testing-result-card {
+  min-height: 220px;
+}
+
 :root {
   --deep-charcoal: #080a0d;
   --charcoal: #111418;
