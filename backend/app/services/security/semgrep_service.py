@@ -265,4 +265,3 @@ def run_semgrep_scan(
     service = SemgrepService()
 
     return service.run_scan(project_path)
-
