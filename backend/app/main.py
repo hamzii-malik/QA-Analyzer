@@ -36,12 +36,27 @@ app.add_middleware(
 app.mount("/reports", StaticFiles(directory=str(reports_dir)), name="reports")
 
 
-@app.get("/health", tags=["System"])
+@app.get("/health", tags=["System"], summary="Health check")
 async def health():
     return {
         "status": "healthy",
         "application": settings.APP_NAME,
         "version": "1.0.0",
+    }
+
+
+@app.get("/api/health", tags=["System"], summary="Detailed service health")
+async def api_health():
+    from shutil import which
+
+    return {
+        "status": "healthy",
+        "services": {
+            "database": True,
+            "bandit": which("bandit") is not None,
+            "semgrep": which("semgrep") is not None,
+            "zap": settings.ZAP_ENABLED and bool(settings.ZAP_PATH or which("zap-baseline.py")),
+        },
     }
 
 

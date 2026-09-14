@@ -171,3 +171,27 @@ def generate_docx_report(report_path: str, project_name: str, result: dict) -> s
 
     doc.save(path)
     return str(path)
+
+
+def generate_json_report(report_path: str, result: dict) -> str:
+    path = Path(report_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
+    return str(path)
+
+
+def generate_html_report(report_path: str, project_name: str, result: dict) -> str:
+    path = Path(report_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    summary = result.get("summary", "")
+    score = result.get("overall_score", 0)
+    security = result.get("security", {}).get("summary", {})
+    body = (
+        f"<h1>QA Report - {project_name}</h1>"
+        f"<p><strong>Overall score:</strong> {score}</p>"
+        f"<p>{summary}</p>"
+        f"<h2>Security</h2><p>{json.dumps(security, default=str)}</p>"
+        f"<h2>Evidence</h2><pre>{json.dumps(result, indent=2, default=str)}</pre>"
+    )
+    path.write_text(f"<!doctype html><html><head><meta charset='utf-8'><title>QA Report</title></head><body>{body}</body></html>", encoding="utf-8")
+    return str(path)

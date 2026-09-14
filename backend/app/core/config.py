@@ -25,6 +25,18 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str
     GEMINI_MODEL: str = "gemini-2.5-flash"
 
+    MAX_UPLOAD_SIZE_MB: int = 100
+    MAX_EXTRACTED_SIZE_MB: int = 500
+    MAX_EXTRACTED_FILES: int = 10000
+    ANALYSIS_TIMEOUT: int = 1800
+    FUZZ_CASES: int = 25
+    FUZZ_MAX_STRING_LENGTH: int = 500
+    ZAP_ENABLED: bool = False
+    ZAP_PATH: str = ""
+    ZAP_HOST: str = "127.0.0.1"
+    ZAP_PORT: int = 8090
+    FRONTEND_URL: str = "http://127.0.0.1:5173"
+
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",
         env_file_encoding="utf-8",

@@ -6,6 +6,8 @@ import zipfile
 from pathlib import Path
 from collections.abc import Callable
 
+from app.core.config import settings
+
 
 def _find_rar_tool() -> str | None:
     candidates = [
@@ -76,9 +78,29 @@ def extract_archive(
     if archive_file.suffix.lower() == ".zip":
         with zipfile.ZipFile(archive_file, "r") as zf:
             members = zf.infolist()
+            if len(members) > settings.MAX_EXTRACTED_FILES:
+                raise ValueError("Archive contains too many files.")
+
+            total_size = 0
+            for member in members:
+                member_path = (dest / member.filename).resolve()
+                if not member_path.is_relative_to(dest.resolve()):
+                    raise ValueError("Archive contains an unsafe path.")
+                if member.is_dir():
+                    continue
+                total_size += member.file_size
+                if total_size > settings.MAX_EXTRACTED_SIZE_MB * 1024 * 1024:
+                    raise ValueError("Archive extracted size exceeds the configured limit.")
+
             total = max(len(members), 1)
             for index, member in enumerate(members, start=1):
-                zf.extract(member, dest)
+                target = (dest / member.filename).resolve()
+                if member.is_dir():
+                    target.mkdir(parents=True, exist_ok=True)
+                else:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    with zf.open(member) as source, target.open("wb") as output:
+                        shutil.copyfileobj(source, output)
                 if progress_callback:
                     progress_callback(round(index / total * 100), f"Extracting {member.filename}")
     elif archive_file.suffix.lower() == ".rar":

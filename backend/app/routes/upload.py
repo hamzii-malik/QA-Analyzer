@@ -17,7 +17,10 @@ from app.services.report_builder import (
     build_category_report_sections,
     build_file_reviews,
     generate_docx_report,
+    generate_html_report,
+    generate_json_report,
 )
+from app.core.config import settings
 
 
 router = APIRouter(
@@ -29,6 +32,18 @@ router = APIRouter(
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 PROJECT_JOBS: dict[str, dict] = {}
+
+
+def _save_upload(upload: UploadFile, destination: Path) -> None:
+    maximum = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+    total = 0
+    with destination.open("wb") as buffer:
+        while chunk := upload.file.read(1024 * 1024):
+            total += len(chunk)
+            if total > maximum:
+                destination.unlink(missing_ok=True)
+                raise HTTPException(status_code=413, detail="Uploaded file exceeds the configured size limit.")
+            buffer.write(chunk)
 
 
 def _update_project_job(job_id: str, **updates) -> None:
@@ -122,16 +137,16 @@ def _run_project_job(job_id: str, archive_path: Path, extract_dir: Path, name: s
         report_path = report_dir / f"{uuid4().hex}_qa_report.docx"
         report_file = generate_docx_report(str(report_path), name, result)
         report_url = f"/reports/project_reports/{Path(report_file).name}"
+        json_file = generate_json_report(str(report_path.with_suffix(".json")), result)
+        html_file = generate_html_report(str(report_path.with_suffix(".html")), name, result)
         result_to_save = {
             "success": True,
+            **result,
             "project_name": name,
-            "project_type": result["project_type"],
-            "overall_score": result["overall_score"],
-            "summary": result["summary"],
-            "categories": result["categories"],
-            "file_reviews": result["file_reviews"],
             "report_path": report_file,
             "report_url": report_url,
+            "json_report_url": f"/reports/project_reports/{Path(json_file).name}",
+            "html_report_url": f"/reports/project_reports/{Path(html_file).name}",
             "files_scanned": len(files),
         }
         
@@ -206,8 +221,7 @@ async def upload_and_analyze(
     file_path = UPLOAD_DIR / safe_name
 
     try:
-        with file_path.open("wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        _save_upload(file, file_path)
 
         rule_result = analyze_file(str(file_path))
 
@@ -287,8 +301,7 @@ async def upload_project_zip(
     archive_path = archive_dir / archive_name
 
     try:
-        with archive_path.open("wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        _save_upload(file, archive_path)
 
         extract_dir = archive_dir / f"{uuid4().hex}_extracted"
         extract_dir.mkdir(parents=True, exist_ok=True)
@@ -312,17 +325,17 @@ async def upload_project_zip(
         report_path = report_dir / f"{uuid4().hex}_qa_report.docx"
         report_file = generate_docx_report(str(report_path), name, result)
         report_url = f"/reports/project_reports/{Path(report_file).name}"
+        json_file = generate_json_report(str(report_path.with_suffix(".json")), result)
+        html_file = generate_html_report(str(report_path.with_suffix(".html")), name, result)
 
         result_to_save = {
             "success": True,
+            **result,
             "project_name": name,
-            "project_type": result["project_type"],
-            "overall_score": result["overall_score"],
-            "summary": result["summary"],
-            "categories": result["categories"],
-            "file_reviews": result["file_reviews"],
             "report_path": report_file,
             "report_url": report_url,
+            "json_report_url": f"/reports/project_reports/{Path(json_file).name}",
+            "html_report_url": f"/reports/project_reports/{Path(html_file).name}",
             "files_scanned": len(files),
         }
         
@@ -353,6 +366,7 @@ async def upload_project_zip(
 
 
 @router.post("/project/start")
+@router.post("", include_in_schema=False)
 async def start_project_analysis(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
@@ -370,8 +384,7 @@ async def start_project_analysis(
     archive_path = archive_dir / f"{job_id}_{name}"
     extract_dir = archive_dir / f"{job_id}_extracted"
 
-    with archive_path.open("wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    _save_upload(file, archive_path)
     extract_dir.mkdir(parents=True, exist_ok=True)
     PROJECT_JOBS[job_id] = {
         "job_id": job_id,

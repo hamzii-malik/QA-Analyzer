@@ -4,7 +4,7 @@ from app.db.database import Base, engine
 from app.models.analysis import Analysis
 
 
-async def test():
+async def initialize_database():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
@@ -12,4 +12,4 @@ async def test():
     print("Database tables: CREATED")
 
 
-asyncio.run(test())
+asyncio.run(initialize_database())

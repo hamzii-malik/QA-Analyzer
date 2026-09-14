@@ -213,6 +213,13 @@ function App() {
     const categories = data.categories || {};
     const categoryEntries = Object.entries(categories);
     const score = Number(data.overall_score || 0);
+    const detection = data.project_detection || {};
+    const securitySummary = data.security?.summary || {};
+    const testing = data.testing || {};
+    const testingTotal = Object.values(testing).reduce(
+      (total, item) => total + Number(item?.summary?.total || 0),
+      0
+    );
 
     return (
       <section className="results-section">
@@ -234,6 +241,66 @@ function App() {
             <p>{data.summary || "Project QA summary is not available yet."}</p>
           </div>
         </div>
+
+        <div className="stats-grid">
+          <div className="stat-card">
+            <span>Languages</span>
+            <strong>{detection.languages?.join(", ") || "Not detected"}</strong>
+          </div>
+          <div className="stat-card">
+            <span>Frameworks</span>
+            <strong>{detection.frameworks?.join(", ") || "Not detected"}</strong>
+          </div>
+          <div className="stat-card">
+            <span>Security Findings</span>
+            <strong>{securitySummary.total || 0}</strong>
+          </div>
+          <div className="stat-card">
+            <span>Generated Test Cases</span>
+            <strong>{testingTotal}</strong>
+          </div>
+
+          <div className="stat-card">
+            <span>Reports</span>
+            <strong>
+              {data.report_url ? (
+                <>
+                  <a className="report-link" href={data.report_url} target="_blank" rel="noreferrer">DOCX</a>{" "}
+                  {data.html_report_url && <a className="report-link" href={data.html_report_url} target="_blank" rel="noreferrer">HTML</a>}{" "}
+                  {data.json_report_url && <a className="report-link" href={data.json_report_url} target="_blank" rel="noreferrer">JSON</a>}
+                </>
+              ) : "Pending"}
+            </strong>
+          </div>
+        </div>
+
+        {data.score_breakdown && (
+          <div className="project-overview-card">
+            <div className="card-title">
+              <span className="icon testing">✓</span>
+              <h3>Transparent Score</h3>
+            </div>
+            <p>
+              Base {data.score_breakdown.base} - security deductions {data.score_breakdown.security_deductions} = final {data.score_breakdown.final}
+            </p>
+          </div>
+        )}
+
+        {data.security && (
+          <div className="project-overview-card">
+            <div className="card-title">
+              <span className="icon security">!</span>
+              <h3>Security Scanners</h3>
+            </div>
+            <ul className="result-list">
+              {Object.entries(data.security.scanners || {}).map(([scanner, scannerData]) => (
+                <li key={scanner}>
+                  {scanner}: {scannerData.status} ({scannerData.summary?.total || 0} findings)
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="project-overview-card">
           <div className="card-title">

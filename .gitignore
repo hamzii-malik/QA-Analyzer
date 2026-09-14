@@ -13,4 +13,7 @@ backend/reports/
 reports/
 *.pyc
 *.log
+bandit-report.json
+semgrep-report.json
+backend/test_semgrep_project/
 .DS_Store

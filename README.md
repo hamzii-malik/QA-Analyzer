@@ -35,6 +35,17 @@ SCREENSHOTS_DIR=../screenshots
 LOG_LEVEL=INFO
 GEMINI_API_KEY=your_key_here
 GEMINI_MODEL=gemini-2.5-flash
+MAX_UPLOAD_SIZE_MB=100
+MAX_EXTRACTED_SIZE_MB=500
+MAX_EXTRACTED_FILES=10000
+ANALYSIS_TIMEOUT=1800
+FUZZ_CASES=25
+FUZZ_MAX_STRING_LENGTH=500
+ZAP_ENABLED=False
+ZAP_PATH=
+ZAP_HOST=127.0.0.1
+ZAP_PORT=8090
+FRONTEND_URL=http://127.0.0.1:5173
 ```
 
 ## Backend
@@ -59,8 +70,13 @@ npm run dev
 - Analysis list: `GET /api/analysis/`
 - Analysis detail: `GET /api/analysis/{id}`
 - Upload analyze: `POST /api/upload/analyze`
+- Project upload: `POST /api/upload/project/start`
+- Detailed health: `GET /api/health`
+- Analysis status/results/security/tests/findings/report: `GET /api/analysis/{id}/...`
 
 ## Notes
 
 - Uploaded code is analyzed as text only; it is never executed.
+- Runtime readiness is detected using allowlisted command suggestions; uploaded application commands are not executed automatically.
+- OWASP ZAP is disabled by default and accepts only localhost/loopback targets.
 - The frontend must call the backend at `http://127.0.0.1:8000`.
